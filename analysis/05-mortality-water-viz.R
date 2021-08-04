@@ -7,6 +7,9 @@ library(tidyr)
 library(stringr)
 library(ggplot2)
 theme_set(theme_bw())
+library(biscale)
+library(lis)
+library(cowplot)
 
 inpath <- path("data", "processed")
 infile <- path(inpath, "mortality-water.csv")
@@ -111,4 +114,104 @@ plt_smooth <-
   ) +
   geom_hline(yintercept = 0, lty = "dashed")
 
-show(plt_smooth)  
+show(plt_smooth)
+
+#----------------------------------------------------------
+
+data("Peru")
+
+mortality_water_covid_all <- 
+  mortality_water %>% 
+  filter(year >= 2020) %>% 
+  left_join(mortality_water_base, by = c("ubigeo", "week")) %>% 
+  group_by(ubigeo) %>% 
+  summarise(
+    base = sum(base),
+    deaths = sum(deaths),
+    yes = mean(water_247_yes),
+    no = mean(water_247_no), 
+    pop = mean(population)
+  ) %>% 
+  mutate(
+    excess = 10000 * (deaths - base) / pop,
+    water_prop = 100 * yes / (yes + no)
+  )
+
+mortality_water_covid_bi <- 
+  Peru %>% 
+  right_join(mortality_water_covid_all, by = "ubigeo")
+
+bidata <- 
+  bi_class(
+    mortality_water_covid_bi, 
+    x = water_prop, 
+    y = excess, 
+    style = "quantile", 
+    dim = 3
+  )
+
+plt_bimap <- 
+  ggplot() +
+  geom_sf(bidata, mapping = aes(fill = bi_class), color = "white", size = 0.1, 
+          show.legend = FALSE) +
+  bi_scale_fill(pal = "DkBlue", dim = 3) +
+  bi_theme()
+
+legend <- bi_legend(pal = "DkBlue", dim = 3, xlab = "Higher % Water Supply", 
+                    ylab = "Higher Excess Death", size = 8)
+
+plt_bimap_water_excess <- 
+  ggdraw() +
+  draw_plot(plt_bimap, 0, 0, 1, 1) +
+  draw_plot(legend, 0.15, 0.1, 0.2, 0.2)
+
+show(plt_bimap_water_excess)
+
+png("analysis/figs/bimap-water-excess.png", width = 22, height = 32, 
+    units = "cm", res = 300)
+show(plt_bimap_water_excess)
+dev.off()
+
+bimap_reg <- function(region = "LIMA", x.map = 0, y.map = 0, width.map = 1, 
+                      height.map = 1, scale.map = 1, x.legend = 0, y.legend = 0, 
+                      width.legend = 1, height.legend = 1, scale.legend = 1) {
+  dat <- 
+    mortality_water_covid_bi %>% 
+    filter(reg == region)
+  
+  bidat <- 
+    bi_class(
+      dat, 
+      x = water_prop, 
+      y = excess, 
+      style = "quantile", 
+      dim = 3
+    )
+  
+  bimap <- 
+    ggplot() +
+    geom_sf(bidat, mapping = aes(fill = bi_class), color = "white", size = 0.1, 
+            show.legend = FALSE) +
+    bi_scale_fill(pal = "DkBlue", dim = 3) +
+    bi_theme()
+  
+  legend <- bi_legend(pal = "DkBlue", dim = 3, xlab = "Higher % Water Supply ", 
+                      ylab = "Higher Excess Death ", size = 8)
+  
+  full_bimap <- 
+    ggdraw() +
+    draw_plot(bimap, x.map, y.map, width.map, height.map, scale.map) +
+    draw_plot(legend, x.legend, y.legend, width.legend, height.legend, 
+              scale.legend)
+  
+  full_bimap
+}
+
+bimap_lima <- bimap_reg(x.legend = 0.15, y.legend = 0.1, width.legend = 0.2, 
+                        height.legend = 0.2)
+
+png("analysis/figs/bimap-lima.png", width = 22, height = 32, units = "cm", 
+    res = 300)
+show(bimap_lima)
+dev.off()
+
