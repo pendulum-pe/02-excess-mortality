@@ -96,3 +96,4 @@ outfile_name <- paste0("monthly-excess-deaths-", report_date, ".csv")
 outfile <- path(outpath, outfile_name)
 write.csv(monthly_excess_deaths, outfile, row.names = FALSE, 
           fileEncoding = "utf-8")
+

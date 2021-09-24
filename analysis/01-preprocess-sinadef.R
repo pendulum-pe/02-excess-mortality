@@ -1,13 +1,15 @@
 library(fs)
-library(readxl)
+library(readr)
 library(dplyr)
 library(stringr)
 library(stringi)
 library(lubridate)
 
 inpath <- path("data", "raw")
-infile <- path(inpath, "sinadef-20210719.xlsx")
-sinadef_raw <- read_excel(infile)
+infile <- path(inpath, "sinadef-20210920.csv")
+sinadef_raw <- read_delim(
+  infile, delim = "|", locale = locale(encoding = "utf8")
+)
 
 sinadef_raw <- sinadef_raw[, -1]
 sinadef_raw <- 
@@ -258,5 +260,5 @@ mortality <-
   arrange(dated, region, province, district)
 
 outpath <- path("data", "interim")
-outfile <- path(outpath, "sinadef-20210719.csv")
+outfile <- path(outpath, "sinadef-20210920.csv")
 write.csv(mortality, outfile, row.names = FALSE)
